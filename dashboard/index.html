@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remediation Console</title>
+<style>
+  /* ----------------------------------------------------------------------
+     Autonomous security remediation — an operations console, not a SaaS
+     dashboard. Deep slate; a single signal-amber for "in flight"; restrained
+     green only at the moment of resolution. Monospace for data so numbers
+     read like telemetry, humanist sans for prose.
+  ---------------------------------------------------------------------- */
+  :root {
+    --bg:#0c0f14; --panel:#141922; --panel-2:#1b212c; --line:#262e3a;
+    --ink:#e6eaf0; --ink-dim:#8893a4; --ink-faint:#5a6575;
+    --amber:#f0a23b; --green-ok:#43d18a; --red:#e5645f; --blue:#5b9dd9;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,-apple-system,"Inter","Segoe UI",system-ui,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); }
+  body { padding:28px clamp(16px,4vw,48px) 64px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pulse { animation:pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  }
+
+  header { display:flex; align-items:baseline; justify-content:space-between;
+           gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--line);
+           padding-bottom:18px; margin-bottom:28px; }
+  .title { font-size:15px; letter-spacing:.14em; text-transform:uppercase;
+           font-weight:600; }
+  .title small { display:block; letter-spacing:.04em; text-transform:none;
+           font-weight:400; color:var(--ink-faint); font-size:12px; margin-top:4px; }
+  .repo { font-family:var(--mono); font-size:12px; color:var(--ink-dim); }
+  .repo b { color:var(--amber); font-weight:500; }
+  .live { font-family:var(--mono); font-size:11px; color:var(--ink-faint);
+          display:inline-flex; align-items:center; gap:7px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--green-ok); }
+
+  .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+             gap:1px; background:var(--line); border:1px solid var(--line);
+             border-radius:10px; overflow:hidden; margin-bottom:30px; }
+  .metric { background:var(--panel); padding:18px 20px; }
+  .metric .n { font-family:var(--mono); font-size:30px; font-weight:500;
+               line-height:1; letter-spacing:-.02em; }
+  .metric .l { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+               color:var(--ink-faint); margin-top:9px; }
+  .metric .sub { font-family:var(--mono); font-size:11px; color:var(--ink-dim); margin-top:4px; }
+  .n.amber{color:var(--amber);} .n.green{color:var(--green-ok);}
+  .n.blue{color:var(--blue);} .n.red{color:var(--red);}
+
+  /* two-column: pipeline (signature element) + activity feed */
+  .grid { display:grid; grid-template-columns:1fr; gap:26px; }
+  @media (min-width:1000px){ .grid { grid-template-columns:1.55fr 1fr; } }
+  .section-label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+                   color:var(--ink-faint); margin:0 0 14px 2px; }
+
+  .rows { display:flex; flex-direction:column; gap:1px; background:var(--line);
+          border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .row { background:var(--panel); display:grid;
+         grid-template-columns:44px 1fr auto; gap:16px; align-items:center;
+         padding:16px 20px; }
+  .row:hover { background:var(--panel-2); }
+  .issue-no { font-family:var(--mono); font-size:13px; color:var(--ink-faint); text-align:right; }
+  .issue-no::before { content:"#"; color:var(--ink-faint); }
+  .row-main { min-width:0; }
+  .row-title { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-meta { font-family:var(--mono); font-size:11px; color:var(--ink-dim);
+              margin-top:5px; display:flex; gap:14px; flex-wrap:wrap; }
+  .row-meta a { color:var(--blue); text-decoration:none; }
+  .row-meta a:hover { text-decoration:underline; }
+  .row-note { font-size:11.5px; color:var(--ink-faint); margin-top:6px; font-style:italic;
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .chip { font-family:var(--mono); font-size:11px; letter-spacing:.03em;
+          padding:5px 11px; border-radius:999px; border:1px solid var(--line);
+          white-space:nowrap; display:inline-flex; align-items:center; gap:7px; }
+  .chip .s { width:6px; height:6px; border-radius:50%; background:var(--ink-faint); }
+  .chip.queued{color:var(--ink-dim);}
+  .chip.running{color:var(--amber);border-color:#3a3526;} .chip.running .s{background:var(--amber);}
+  .chip.complete{color:var(--green-ok);border-color:#1f3a2e;} .chip.complete .s{background:var(--green-ok);}
+  .chip.needs_review{color:var(--blue);border-color:#22354a;} .chip.needs_review .s{background:var(--blue);}
+  .chip.failed{color:var(--red);border-color:#3f2625;} .chip.failed .s{background:var(--red);}
+
+  /* activity feed */
+  .feed { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:6px 0; max-height:520px; overflow:auto; }
+  .ev { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:baseline;
+        padding:11px 18px; border-bottom:1px solid var(--line); }
+  .ev:last-child { border-bottom:none; }
+  .ev .k { font-family:var(--mono); font-size:10.5px; letter-spacing:.04em;
+           text-transform:uppercase; padding:2px 8px; border-radius:5px;
+           border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; }
+  .ev .k.spawned{color:var(--amber);border-color:#3a3526;}
+  .ev .k.pr_opened{color:var(--green-ok);border-color:#1f3a2e;}
+  .ev .k.escalated{color:var(--blue);border-color:#22354a;}
+  .ev .k.failed{color:var(--red);border-color:#3f2625;}
+  .ev .d { font-size:12.5px; color:var(--ink-dim); min-width:0; overflow:hidden;
+           text-overflow:ellipsis; white-space:nowrap; }
+  .ev .d b { color:var(--ink); font-weight:500; }
+  .ev .t { font-family:var(--mono); font-size:11px; color:var(--ink-faint); white-space:nowrap; }
+
+  .empty { background:var(--panel); padding:40px 20px; text-align:center;
+           color:var(--ink-faint); font-size:13px; }
+  .empty b { color:var(--ink-dim); font-weight:500; }
+  footer { margin-top:26px; font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">Remediation Console
+      <small>Autonomous security remediation · Devin sessions</small>
+    </div>
+    <div style="text-align:right">
+      <div class="repo">repo <b id="repo">AlexTindlund/superset</b></div>
+      <div class="live"><span class="dot pulse"></span><span id="clock">live</span></div>
+    </div>
+  </header>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="grid">
+    <div>
+      <p class="section-label">Remediation pipeline</p>
+      <div class="rows" id="rows">
+        <div class="empty"><b>No tasks yet.</b> Trigger the pipeline to spawn Devin sessions.</div>
+      </div>
+    </div>
+    <div>
+      <p class="section-label">Activity</p>
+      <div class="feed" id="feed">
+        <div class="empty">awaiting events…</div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="footer">awaiting first poll…</footer>
+
+<script>
+const fmtDur = (s) => {
+  if (s == null) return "—";
+  if (s < 60) return Math.round(s) + "s";
+  if (s < 3600) return Math.floor(s/60) + "m " + Math.round(s%60) + "s";
+  return Math.floor(s/3600) + "h " + Math.floor((s%3600)/60) + "m";
+};
+const ago = (epoch) => {
+  const d = Date.now()/1000 - epoch;
+  if (d < 60) return Math.max(0,Math.round(d)) + "s ago";
+  if (d < 3600) return Math.floor(d/60) + "m ago";
+  return Math.floor(d/3600) + "h ago";
+};
+const esc = (x) => (x==null?"":String(x)).replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const STATUS_LABEL = { queued:"queued", running:"in flight",
+  complete:"PR opened", needs_review:"needs review", failed:"failed" };
+const EV_LABEL = { spawned:"spawned", pr_opened:"PR opened",
+  escalated:"escalated", failed:"failed" };
+
+function metric(n, label, sub, cls){
+  return `<div class="metric"><div class="n ${cls||''}">${n}</div>
+    <div class="l">${label}</div>${sub?`<div class="sub">${sub}</div>`:``}</div>`;
+}
+
+function render(state){
+  const s = state.summary, tasks = state.tasks || [], events = state.events || [];
+  const by = s.by_status || {};
+  document.getElementById("metrics").innerHTML =
+      metric(s.total_tasks, "Sessions", "issues ingested")
+    + metric(by.running||0, "In flight", "active now", "amber")
+    + metric(by.complete||0, "PRs opened", "remediated", "green")
+    + metric(by.needs_review||0, "Needs review", "escalated", "blue")
+    + metric(s.findings_total, "Findings", "scanner hits")
+    + metric(fmtDur(s.mean_time_to_pr_sec), "Mean time→PR", "per remediation");
+
+  const rowsEl = document.getElementById("rows");
+  if (tasks.length){
+    rowsEl.innerHTML = tasks.map(t => {
+      const cls = t.status || "queued";
+      const live = cls === "running" ? " pulse" : "";
+      const meta = [];
+      if (t.vuln_class) meta.push(`<span>${esc(t.vuln_class)}</span>`);
+      if (t.finding_count) meta.push(`${t.finding_count} findings`);
+      if (t.session_url) meta.push(`<a href="${esc(t.session_url)}" target="_blank" rel="noopener">session ↗</a>`);
+      if (t.pr_url) meta.push(`<a href="${esc(t.pr_url)}" target="_blank" rel="noopener">pull request ↗</a>`);
+      const note = t.last_message ? `<div class="row-note" title="${esc(t.last_message)}">“${esc(t.last_message)}”</div>` : ``;
+      return `<div class="row">
+        <div class="issue-no">${t.issue_number}</div>
+        <div class="row-main">
+          <div class="row-title">${esc(t.issue_title)}</div>
+          <div class="row-meta">${meta.join("")}</div>${note}
+        </div>
+        <div class="chip ${cls}"><span class="s${live}"></span>${STATUS_LABEL[cls]||cls}</div>
+      </div>`;
+    }).join("");
+  }
+
+  const feedEl = document.getElementById("feed");
+  if (events.length){
+    feedEl.innerHTML = events.map(e => {
+      const k = e.kind || "";
+      const num = e.issue_number ? `<b>#${e.issue_number}</b> ` : "";
+      return `<div class="ev">
+        <span class="k ${k}">${EV_LABEL[k]||k}</span>
+        <span class="d" title="${esc(e.detail)}">${num}${esc(e.detail)}</span>
+        <span class="t">${ago(e.created_at)}</span>
+      </div>`;
+    }).join("");
+  }
+}
+
+async function tick(){
+  try {
+    const r = await fetch("/api/state", {cache:"no-store"});
+    const state = await r.json();
+    render(state);
+    const now = new Date().toLocaleTimeString();
+    document.getElementById("clock").textContent = "live · " + now;
+    document.getElementById("footer").textContent =
+      `polling /api/state every 5s · last update ${now}`;
+  } catch(e){
+    document.getElementById("footer").textContent = "connection lost — retrying…";
+  }
+}
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>
