@@ -200,13 +200,3 @@ All via environment variables (see `.env.example`):
   demo creates them by hand only for reproducibility on camera.
 - **Severity-aware concurrency**: prioritize and rate-limit sessions by finding
   severity so critical fixes land first.
-
----
-
-## Scope note
-
-The take-home brief scoped this at 2–3 hours and prized a working end-to-end demo
-over polish. This build stays within that spirit: a single Docker command brings
-up a real, event-driven pipeline that spawns live Devin sessions and reports
-measured outcomes. Everything above the core loop (signature verification, the
-event trail, the skip-guard) is small, deliberate hardening — not scope creep.
