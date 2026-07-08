@@ -1,0 +1,24 @@
+services:
+  orchestrator:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Required: your Devin personal API key (apk_user_...).
+      - DEVIN_API_KEY=${DEVIN_API_KEY:?set DEVIN_API_KEY in your .env}
+      # Repo + label the pipeline reads. Defaults match the take-home fork.
+      - GITHUB_REPO=${GITHUB_REPO:-AlexTindlund/superset}
+      - TRIGGER_LABEL=${TRIGGER_LABEL:-Tasks for devin}
+      # Optional: GitHub token lifts the 60/hr unauthenticated rate limit.
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      # Optional: shared secret for webhook signature verification.
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      # Tunables.
+      - POLL_INTERVAL_SEC=${POLL_INTERVAL_SEC:-30}
+      - DEVIN_MAX_ACU=${DEVIN_MAX_ACU:-10}
+      - DB_PATH=/data/remediation.db
+    volumes:
+      - remediation_data:/data
+
+volumes:
+  remediation_data:
