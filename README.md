@@ -151,9 +151,9 @@ branches and open PRs (Devin app → Settings → Connections → GitHub).
 
 ---
 
-## Observability — "how would a leader know it's working?"
+## Observability
 
-The dashboard answers this directly, at a glance:
+The dashboard solves this cleanly, at a glance:
 
 - **Sessions** ingested and **In flight** right now
 - **PRs opened** — remediations actually delivered
