@@ -187,16 +187,3 @@ All via environment variables (see `.env.example`):
 | `WEBHOOK_SECRET` | — (optional) | Enables `X-Hub-Signature-256` verification |
 | `POLL_INTERVAL_SEC` | `30` | How often the poller checks each session |
 | `DEVIN_MAX_ACU` | `10` | Per-session ACU ceiling (cost guardrail) |
-
----
-
-## Extending this in a real engagement
-
-- **Wire to the customer's existing scanner** (Snyk/CodeQL/Dependabot) as the
-  trigger — the issue-ingestion contract is the only integration point.
-- **Gate on CI**: have the poller read the PR's check status and only mark a task
-  *complete* when tests pass, escalating red builds to `needs_review`.
-- **Auto-create issues** from raw scan output so no human touches the queue — the
-  demo creates them by hand only for reproducibility on camera.
-- **Severity-aware concurrency**: prioritize and rate-limit sessions by finding
-  severity so critical fixes land first.
